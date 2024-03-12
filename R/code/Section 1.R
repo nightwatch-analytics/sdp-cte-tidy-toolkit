@@ -1,9 +1,7 @@
-# ******************************************************************************
-#   Section 1 Code
-# ******************************************************************************
+# Section 1 Code ----
   
 # ******************************************************************************
-#   Comments about this code
+# Comments about this code
 # ******************************************************************************
 
 # The code in this section was converted from Stata to R and closely matches 
@@ -15,18 +13,18 @@
 
 # Data for this analysis code should be set up according to the accompanying data 
 # specification guide.
- 
- 	
-# ******************************************************************************
-# 	 Set up 
-# ******************************************************************************
-	
-# Clear environment
-rm(list=ls())
 
-# In the directory where you have the R Project file, ensure there is a folder 
-# called "data" and a folder called "graphs" or change the names for these
-# folders below
+# Set up ----
+
+# Directory
+
+# Main
+# |- data
+# |- graphs
+# |- file.RProj
+
+# Load Packages ----
+
 data_path <- file.path("data", "cte_sample_data.csv") # set path to your saved .csv data file matching spec document
 saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved on your computer
 
@@ -37,30 +35,37 @@ packages<-c("tidyverse", "ggplot2", "nnet", "marginaleffects", "ggh4x")
 lapply(packages, require, character.only = TRUE)
 
 # ******************************************************************************
-#   Load data set up according to spec
-# ******************************************************************************
+# Import ----
    
 #   import delimited "${path_to_data}"
 cte_data <- read.csv(data_path)
 
-# ******************************************************************************
-#   Label variables as relevant to institution
-# ******************************************************************************
+# Tidy ----
 
-#  Male
-cte_data$male <- factor(cte_data$male, levels=c(0,1),
-               labels=c("Female", "Male"))
-table(cte_data$male)
+factor_sex <- function(sex){
+	
+	factor({{ sex }}, 
+	       levels = c(0,1), 
+	       labels = c("Female", "Male"))
+	
+}
 
 # Race/ethnicity
-cte_data$race <- factor(cte_data$race, levels=c(1,2,3,4,5),
-                        labels=c("Asian", "Black", "Hispanic", "White","Other"))
-table(cte_data$race)
-
+factor_race <- function(race){
+	
+	factor(cte_data$race, 
+	       levels=c(1,2,3,4,5),
+	       labels = c("Asian", "Black", "Hispanic", "White","Other"))
+	
+}
 # Mother's Education level
-cte_data$motheredlevel <- factor(cte_data$motheredlevel, levels=c(1,2,3,4),
-                        labels=c("Middle Sch", "High Sch", "Any College", "NA"))
-table(cte_data$motheredlevel)
+factor_edu <- function(education){
+	
+	factor({{ education }}, 
+	       levels=c(1,2,3,4),
+	       labels = c("Middle Sch", "High Sch", "Any College", "NA"))
+
+}
 
 
 # ******************************************************************************
