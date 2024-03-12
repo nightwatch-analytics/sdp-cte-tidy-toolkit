@@ -34,7 +34,6 @@ packages<-c("tidyverse", "ggplot2", "nnet", "marginaleffects", "ggh4x")
 #lapply(packages, install.packages, character.only = TRUE)
 lapply(packages, require, character.only = TRUE)
 
-# ******************************************************************************
 # Import ----
    
 #   import delimited "${path_to_data}"
@@ -68,9 +67,7 @@ factor_edu <- function(education){
 }
 
 
-# ******************************************************************************
 #   Generate additional variables
-# ******************************************************************************
 
 # Determine number of terms included in data for each student
 max_term <- max(cte_data$cohorttermindex)		
@@ -87,12 +84,13 @@ cte_data <- cte_data %>%
   ungroup() 
 
 # Label the outcome variable
-cte_data$outcome <- factor(cte_data$outcome, levels=c(0,1,2),
+factor_outcomes cte_data$outcome <- factor(cte_data$outcome, levels=c(0,1,2),
                            labels=c("None", "Completion", "Transfer"))
-table(cte_data$pathway, cte_data$outcome)
 
 # Code in an indicator for a terminating event (first completion or first transfer)
-cte_data <- cte_data %>%
+recode_pathway <- function(){
+	
+	cte_data <- cte_data %>%
   mutate(terminating = ifelse(pathway == 100 | pathway == 101, 1, 0))
  
 # Generate an indicator for non-enrollment
@@ -105,7 +103,8 @@ cte_data <- cte_data %>%
   group_by(studentid) %>%
   mutate(entry_pathway = max(entry_pathway)) %>%
   ungroup()
- 
+	
+ }
 # Label entry pathways
 cte_data$entry_pathway <- factor(cte_data$entry_pathway, levels=c(1,2,3,4),
                            labels=c("Engineer Tech", "Health", "IT Tech", "Mech Repair"))
@@ -145,17 +144,32 @@ cte_data_example_stu <- cte_data_example %>%
   filter(cohorttermindex==1)
 View(cte_data_example_stu)
 
-# /**********************************
-#   Run regressions and plot margins
-# **********************************/		
+# Transform ----
 
-# Model: outcomes conditional only on initial pathway choice
+# Visualize ----
+
+plot_theme <- function(){
+	
+	theme_minimal() +
+	theme(plot.title = element_text(hjust = 0.5),
+	      legend.title = element_blank(),
+	      legend.position = "bottom",
+	      axis.title.x = element_blank(),
+	      axis.text.x = element_text(size = 10),
+	      legend.text = element_text(size = 10),
+	      panel.grid.major.x = element_blank()
+	      
+}
+
+# Model ----
+# outcomes conditional only on initial pathway choice
 # We only need to run the regression with the first entry for each student
 model_pathway <- multinom(outcome ~ pathway, data = cte_data_stu, Hess = TRUE)
 model_pathway_margins <- predictions(model_pathway, by="pathway")
 model_pathway_margins <- model_pathway_margins %>%
   filter(group != "None") %>%
   mutate(outcome = ifelse(group=="Completion", 1, 2))
+	      
 model_pathway_margins$outcome <- factor(model_pathway_margins$outcome, levels=c(1,2),
                                       labels=c("Completion First", "Transfer First")) 
 
@@ -171,16 +185,7 @@ ggplot(model_pathway_margins, aes(fill = forcats::fct_rev(outcome), y=estimate, 
     title = "Probability of Completion First or Transferring First \n by Pathway",
     y = "Probability"
   ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5),
-    legend.title = element_blank(),
-    legend.position="bottom",
-    axis.title.x = element_blank(),
-    axis.text.x=element_text(size=10),
-    legend.text = element_text(size = 10),
-    panel.grid.major.x = element_blank()
-  ) 
+  
 dev.copy(png,filename=file.path(saved_graphs, "visualization_1a.png"));
 dev.off ();
 
@@ -259,8 +264,6 @@ ggplot(model_full_hsgpa_margins, aes(hsgpa, estimate, group=race, color=race)) +
     panel.grid.major = element_blank(),
     axis.text.x=element_text(size=6)
   )
-dev.copy(png,filename=file.path(saved_graphs, "visualization_1c.png"));
-dev.off ();
 
 ## Visualization 1d: waterfall view of completion/transfer, unenrollment, and continued enrollment over time
 # Chart: waterfall view of completion/transfer, unenrollment, and continued enrollment over time
@@ -307,5 +310,3 @@ ggplot(waterfall_long, aes(x = cohorttermindex, y = value, fill = forcats::fct_r
     legend.box.background = element_rect(color = "white"),
     panel.grid.minor = element_blank()
   )
-dev.copy(png,filename=file.path(saved_graphs, "visualization_1d.png"));
-dev.off ();
