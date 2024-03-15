@@ -43,12 +43,25 @@ saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved o
    
 #   import delimited "${path_to_data}"
 read_cte <- function(data){
-	
-	read_csv(data) %>%
-	mutate(sex = factor_sex(sex),
-	       race = factor_race(race),
-	       education = factor_edu(education))
-	       
+  
+  read_csv(data) %>%
+    mutate(male = factor(male, 
+                        levels = c(0,1), 
+                        labels = c("Female", 
+                                   "Male")),
+             race = factor(race, 
+                           levels = c(1,2,3,4,5),
+                           labels = c("Asian", 
+                                      "Black", "
+                                      Hispanic", 
+                                      "White",
+                                      "Other")),
+             motheredlevel = factor(motheredlevel, 
+                                levels = c(1,2,3,4),
+                                labels = c("Middle Sch", 
+                                           "High Sch", 
+                                           "Any College", 
+                                           "NA")))
 }
 
 # Tidy ----
@@ -64,7 +77,7 @@ factor_sex <- function(sex){
 # Race/ethnicity
 factor_race <- function(race){
 	
-	factor(cte_data$race, 
+	factor(race, 
 	       levels = c(1,2,3,4,5),
 	       labels = c("Asian", "Black", "Hispanic", "White","Other"))
 	
