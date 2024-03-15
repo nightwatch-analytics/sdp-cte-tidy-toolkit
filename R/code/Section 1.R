@@ -45,9 +45,9 @@ saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved o
 read_cte <- function(data){
 	
 	read_csv(data) %>%
-	mutate(sex = factor_sex(sex) %>%
-	       race = factor_race(race) %>%
-	       education = factor_edu(education)
+	mutate(sex = factor_sex(sex),
+	       race = factor_race(race),
+	       education = factor_edu(education))
 	       
 }
 
