@@ -66,32 +66,6 @@ read_cte <- function(data){
 
 # Tidy ----
 
-factor_sex <- function(sex){
-	
-	factor({{ sex }}, 
-	       levels = c(0,1), 
-	       labels = c("Female", "Male"))
-	
-}
-
-# Race/ethnicity
-factor_race <- function(race){
-	
-	factor(race, 
-	       levels = c(1,2,3,4,5),
-	       labels = c("Asian", "Black", "Hispanic", "White","Other"))
-	
-}
-
-# Mother's Education level
-factor_edu <- function(education){
-	
-	factor({{ education }}, 
-	       levels = c(1,2,3,4),
-	       labels = c("Middle Sch", "High Sch", "Any College", "NA"))
-
-}
-
 #   Generate additional variables
 # Determine number of terms included in data for each student
 max_term <- max(cte_data$cohorttermindex)		
