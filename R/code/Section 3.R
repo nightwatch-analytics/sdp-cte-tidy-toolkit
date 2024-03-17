@@ -2,9 +2,7 @@
 # 	Section 3 Code
 # ******************************************************************************
 
-# ******************************************************************************
-#   Comments about this code
-# ******************************************************************************
+#   Comments about this code ----
 
 # The code in this section was converted from Stata to R and closely matches 
 # the Stata version.
@@ -17,12 +15,7 @@
 # specification guide.
 
 
-# ***************************************
-# 	 Set up 
-# ***************************************
-
-# Clear environment
-rm(list=ls())
+# Set up ----
 
 # In the directory where you have the R Project file, ensure there is a folder 
 # called "data" and a folder called "graphs" or change the names for these
@@ -30,21 +23,16 @@ rm(list=ls())
 data_path <- file.path("data", "cte_sample_it_courses.csv") # set path to your saved .csv data file matching spec document
 saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved on your computer
 
-# Load required packages
-packages<-c("tidyverse", "plotly")
-# If required packages are not yet installed, uncomment the line below to install them
-#lapply(packages, install.packages, character.only = TRUE)
-lapply(packages, require, character.only = TRUE)
+# Load packages ----
+library(tidyverse)
+library(plotly)
 
-# ***************************************
-#   Load data set up according to spec
-# ***************************************
+# Import ----
 
-cte_course_data <- read.csv(data_path)
+cte_course_data <- read_csv(data_path)
 
-# *************************************
-#  Plotly Scatterplot with tooltip hover
-# *************************************
+# Visualize ----
+# Plotly Scatterplot with tooltip hover 
 
 # Add column to be passed to color argument
 cte_course_data <- cte_course_data %>% 
