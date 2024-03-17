@@ -2,9 +2,7 @@
 #  Section 2 Code
 # ******************************************************************************
   
-# ******************************************************************************
-#   Comments about this code
-# ******************************************************************************
+#   Comments about this code ----
 
 # The code in this section was converted from Stata to R and closely matches 
 # the Stata version.
@@ -17,12 +15,10 @@
 # specification guide.
 
 
-# ***************************************
-# 	 Set up 
-# ***************************************
+# 	 Set up ----
 
 # Clear environment
-rm(list=ls())
+rm(list = ls())
 
 # In the directory where you have the R Project file, ensure there is a folder 
 # called "data" and a folder called "graphs" or change the names for these
@@ -31,22 +27,16 @@ data_path <- file.path("data", "cte_sample_data.csv") # set path to your saved .
 saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved on your computer
 
 # Load required packages
-packages<-c("tidyverse", "plotly")
 # If required packages are not yet installed, uncomment the line below to install them
-#lapply(packages, install.packages, character.only = TRUE)
-lapply(packages, require, character.only = TRUE)
+library(tidyverse)
+library(plotly)
 
-# ***************************************
-#   Load data set up according to spec
-# ***************************************
 
-#   import delimited "${path_to_data}"
-cte_data <- read.csv(data_path)
+#   Load data ----
 
-# /******************************************
-#   Generate additional variables
-# ******************************************/
-#   
+cte_data <- read_csv(data_path)
+
+#   Generate additional variables ----
 # Determine number of terms included in data for each student
 max_term <- max(cte_data$cohorttermindex)		
 
@@ -62,8 +52,8 @@ cte_data <- cte_data %>%
   ungroup() 
 
 # Label outcome
-cte_data$outcome <- factor(cte_data$outcome, levels=c(0,1,2),
-                           labels=c("None", "Completion", "Transfer"))
+cte_data$outcome <- factor(cte_data$outcome, levels = c(0,1,2),
+                           labels = c("None", "Completion", "Transfer"))
 table(cte_data$outcome)
 
 # Code in an indicator for a terminating event (first completion or first transfer)
@@ -82,8 +72,8 @@ cte_data <- cte_data %>%
   ungroup()
 
 # Label entry pathways
-cte_data$entry_pathway <- factor(cte_data$entry_pathway, levels=c(1,2,3,4),
-                                 labels=c("Engineer Tech", "Health", "IT Tech", "Mech Repair"))
+cte_data$entry_pathway <- factor(cte_data$entry_pathway, levels = c(1,2,3,4),
+                                 labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair"))
 table(cte_data$entry_pathway)
 
 # For the Sankey chart, we will limit our data to the IT Tech pathway
@@ -93,47 +83,47 @@ count(cte_data)
 
 # For each student, get their pathway in the next term. 
 cte_data <- cte_data %>%
-  mutate(pathway_target = ifelse(studentid==lead(studentid), lead(pathway), NA))
+  mutate(pathway_target = ifelse(studentid == lead(studentid), lead(pathway), NA))
 
 # Get counts of each term and the pathway the following term
 sankey_data <- cte_data %>%
   group_by(cohorttermindex, pathway, pathway_target) %>%
   summarise(num_students = n()) %>%
   filter(cohorttermindex < 6) %>%
-  select(cohorttermindex, pathway_origin=pathway, pathway_target, num_students)
+  select(cohorttermindex, pathway_origin = pathway, pathway_target, num_students)
 
 # These are our data flows
-sankey_data <- sankey_data %>% rename(semestertransition=cohorttermindex)
+sankey_data <- sankey_data %>% rename(semestertransition = cohorttermindex)
 
-# Set up for Sankey
+# Set up for Sankey ----
 
 # Create a label for each node = to the end point 
 # For simplicity, we create the labels in a dataframe and join them to the 
 # sankey data. However, you could also create them using "mutate."
-node_labels <- data.frame(pathway=c(1,2,3,4,99,100,101),
-                        labels=c("Engineer Tech", "Health", "IT Tech", "Mech Repair", "Not enrolled", "Completed", "Transferred"))
+node_labels <- data.frame(pathway = c(1,2,3,4,99,100,101),
+                        labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair", "Not enrolled", "Completed", "Transferred"))
 sankey_data <- left_join(
   sankey_data,
   node_labels,
-  join_by(pathway_origin==pathway),
+  join_by(pathway_origin == pathway),
   multiple = "all",
   unmatched = "drop"
   )  %>%
-  rename(pathway_origin_label=labels)
+  rename(pathway_origin_label = labels)
 sankey_data <- left_join(
   sankey_data,
   node_labels,
-  join_by(pathway_target==pathway),
+  join_by(pathway_target == pathway),
   multiple = "all",
   unmatched = "drop"
 )  %>%
-  rename(pathway_target_label=labels)
+  rename(pathway_target_label = labels)
 
 # Label each source and target
 # Each point in the flow is a combination of the semester transition and the node name
 sankey_data <- sankey_data %>%
-  mutate(pathway_origin = (semestertransition*1000) + pathway_origin,
-         pathway_target = ((semestertransition+1)*1000) + pathway_target)
+  mutate(pathway_origin = (semestertransition * 1000) + pathway_origin,
+         pathway_target = ((semestertransition+1) * 1000) + pathway_target)
 
 # From these flows we need to create a node data frame: it lists every entities involved in the flow
 nodes <- data.frame(
@@ -143,7 +133,7 @@ nodes <- data.frame(
             sankey_data$pathway_target_label, sep = " to ")) %>% 
   unique()
 
-# Create Sankey diagram using plotly
+# Create Sankey diagram using plotly ----
 fig <- plot_ly(
   type = "sankey",
   orientation = "h",
@@ -156,7 +146,7 @@ fig <- plot_ly(
       color = 'black',
       width = 0.5
     ),
-    color = rgb(51,34,136,maxColorValue = 255),
+    color = rgb(51, 34, 136, maxColorValue = 255),
     hovertemplate = nodes$label
   ),
   link = list(
