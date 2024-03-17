@@ -68,7 +68,7 @@ fig <- plot_ly(cte_course_data,
 )
 
 fig <- fig %>% layout(
-  margin=list(t=50),
+  margin=list(t = 50),
   title = paste("Difference in the Probability of First Completion for Those Who Pass, Fail Course on First Attempt: IT Tech Pathway"),
   xaxis = list(
     title = "Proportion Students Who Failed Course During First Attempt",
