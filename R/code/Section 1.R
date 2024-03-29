@@ -15,7 +15,7 @@
 
 # Set up ----
 
-# Directory
+# Directory Structure
 
 # Main
 # |- data
@@ -65,6 +65,8 @@ read_cte <- function(data){
 }
 
 # Tidy ----
+
+
 
 #   Generate additional variables
 # Determine number of terms included in data for each student
