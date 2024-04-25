@@ -1,208 +1,242 @@
 # ******************************************************************************
-# Section 1 Code 
+# Section 1 Code
 # ******************************************************************************
 
 # About ----
 
-# The code in this section was taken from the original 
+# The code in this section was converted from Stata to R and refactored to
+# adhere to standard tidy methods
 
 # See the first section of code for required libraries and packages. This code
-# tested in R version 4.3.1 / RStudio version 2023.09.0+463 
-# (Latest available in October 2023)
+# tested in R version 4.3.3 / Version 2023.12.1+402
+# (Latest available in April 2024)
 
-# Data for this analysis code should be set up according to the accompanying data 
-# specification guide.
+# See the Data Specification Guide for guidance on how to structure your data
 
 # Set up ----
-
-# Directory Structure
-
-# Main
-# |- data
-# |- graphs
-# |- file.RProj
 
 # Load Packages ----
 
 library(forcats)
 library(fs)
-library(ggh4x)
-library(ggsave)
 library(marginaleffects)
 library(nnet)
 library(tidyverse)
 
-data_path <- file.path("data", "cte_sample_data.csv") # set path to your saved .csv data file matching spec document
-saved_graphs <-	"graphs" # set path (folder) for where you'd like graphs saved on your computer
+# Functions ----
 
-# Load required packages
-# If required packages are not yet installed, uncomment the line below to install them
-#lapply(packages, install.packages, character.only = TRUE)
+plot_theme <- function() {
+  theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.title = element_blank(),
+      legend.position = "bottom",
+      axis.title.x = element_blank(),
+      axis.text.x = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      panel.grid.major.x = element_blank()
+    )
+}
 
 # Import ----
-   
-#   import delimited "${path_to_data}"
-read_cte <- function(data){
-  
-  read_csv(data) %>%
-    mutate(male = factor(male, 
-                        levels = c(0,1), 
-                        labels = c("Female", 
-                                   "Male")),
-             race = factor(race, 
-                           levels = c(1,2,3,4,5),
-                           labels = c("Asian", 
-                                      "Black", "
-                                      Hispanic", 
-                                      "White",
-                                      "Other")),
-             motheredlevel = factor(motheredlevel, 
-                                levels = c(1,2,3,4),
-                                labels = c("Middle Sch", 
-                                           "High Sch", 
-                                           "Any College", 
-                                           "NA")))
+
+read_cte <- function(fPath) {
+  read_csv(fPath) %>%
+    mutate(
+      male = factor(male,
+        levels = c(0, 1),
+        labels = c(
+          "Female",
+          "Male"
+        )
+      ),
+      race = factor(race,
+        levels = c(1, 2, 3, 4, 5),
+        labels = c(
+          "Asian",
+          "Black",
+          "Hispanic",
+          "White",
+          "Other"
+        )
+      ),
+      motheredlevel = factor(motheredlevel,
+        levels = c(1, 2, 3, 4),
+        labels = c(
+          "Middle Sch",
+          "High Sch",
+          "Any College",
+          "NA"
+        )
+      )
+    )
 }
+
+# Be sure to change the file path to where your data is stored
+cte_data <- read_cte("R/data/cte_sample_data.csv")
 
 # Tidy ----
 
-
-
-#   Generate additional variables
-# Determine number of terms included in data for each student
-max_term <- max(cte_data$cohorttermindex)		
-
 # Outcome variable at the student level, across terms
 # Note: After a numeric variable is converted to a factor, you must refer
-# to the label for the code not the code itself (e.g. "Completed" rather than "100")
+# to the label for the code not the code itself
+# e.g. "Completed" rather than "100"
 cte_data <- cte_data %>%
   mutate(outcome = 0) %>%
   mutate(outcome = ifelse(pathway == 100, 1, outcome)) %>%
   mutate(outcome = ifelse(pathway == 101, 2, outcome)) %>%
   group_by(studentid) %>%
   mutate(outcome = max(outcome)) %>%
-  ungroup() 
+  ungroup()
 
 # Label the outcome variable
-factor_outcomes cte_data$outcome <- factor(cte_data$outcome, levels = c(0,1,2),
-                           labels = c("None", "Completion", "Transfer"))
+
+cte_data$outcome <- factor(cte_data$outcome,
+  levels = c(0, 1, 2),
+  labels = c("None", "Completion", "Transfer")
+)
 
 # Code in an indicator for a terminating event (first completion or first transfer)
-recode_pathway <- function(){
-	
-	cte_data <- cte_data %>%
-  mutate(terminating = ifelse(pathway == 100 | pathway == 101, 1, 0))
- 
-# Generate an indicator for non-enrollment
-cte_data <- cte_data %>%
-  mutate(nonenrolled = ifelse(pathway == 99, 1, 0))
+recode_pathway <- function(cte_data) {
 
-# Generate an entry pathway code for each student
-cte_data <- cte_data %>%
-  mutate(entry_pathway = ifelse(cohorttermindex==1, pathway, 0)) %>%
-  group_by(studentid) %>%
-  mutate(entry_pathway = max(entry_pathway)) %>%
-  ungroup()
-	
- }
+  cte_data %>%
+    case_when(pathway == 100 | pathway == 101 ~ 1)
+    mutate(terminating = ifelse(pathway == 100 | pathway == 101, 1, 0))
+
+  # Generate an indicator for non-enrollment
+  cte_data <- cte_data %>%
+    mutate(nonenrolled = ifelse(pathway == 99, 1, 0))
+
+  # Generate an entry pathway code for each student
+  cte_data <- cte_data %>%
+    mutate(entry_pathway = ifelse(cohorttermindex == 1, pathway, 0)) %>%
+    group_by(studentid) %>%
+    mutate(entry_pathway = max(entry_pathway)) %>%
+    ungroup()
+}
 # Label entry pathways
-cte_data$entry_pathway <- factor(cte_data$entry_pathway, levels = c(1,2,3,4),
-                           labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair"))
+cte_data$entry_pathway <- factor(cte_data$entry_pathway,
+  levels = c(1, 2, 3, 4),
+  labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair")
+)
 
 # Create a student-level dataset using the first entry for each student
 cte_data_stu <- cte_data %>%
   filter(cohorttermindex == 1)
 
 # Label the original pathway variable
-# Note: When R turns numeric variables into factors, it converts the underlying 
+# Note: When R turns numeric variables into factors, it converts the underlying
 # numbers to integers starting with 1. It does not retain the original numeric values.
-# For this reason, we wait until the end of the cleaning code to label the pathway 
+# For this reason, we wait until the end of the cleaning code to label the pathway
 # variable so that we can refer to the numeric values during cleaning rather
 # than the labels (e.g We can use "100," not "Completed")
-cte_data$pathway <- factor(cte_data$pathway, levels = c(1,2,3,4,99,100,101),
-                           labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair", "Not enrolled", "Completed", "Transferred"))
+cte_data$pathway <- factor(cte_data$pathway,
+  levels = c(1, 2, 3, 4, 99, 100, 101),
+  labels = c(
+    "Engineer Tech",
+    "Health",
+    "IT Tech",
+    "Mech Repair",
+    "Not enrolled",
+    "Completed",
+    "Transferred"
+  )
+)
 
 # And now we label the pathway variable in the student-level dataset
-# This is done separately because there cannot be empty factor levels for 
+# This is done separately because there cannot be empty factor levels for
 # a variable.
-cte_data_stu$pathway <- factor(cte_data_stu$pathway, levels = c(1,2,3,4),
-                           labels = c("Engineer Tech", "Health", "IT Tech", "Mech Repair"))
+cte_data_stu$pathway <- factor(cte_data_stu$pathway,
+  levels = c(1, 2, 3, 4),
+  labels = c(
+    "Engineer Tech",
+    "Health",
+    "IT Tech",
+    "Mech Repair"
+  )
+)
 
- 
 # Here is an example student to look at in the data
 # Student ID = 3
 # He graduated after three terms.
 cte_data %>%
-  select(studentid, cohorttermindex, entry_pathway, pathway, outcome, male) %>%
+  select(studentid,
+         cohorttermindex,
+         entry_pathway,
+         pathway,
+         outcome,
+         male) %>%
   filter(studentid == 3)
 View(cte_data_example)
 
 # Example: Individual level data
 cte_data_example %>%
-filter(cohorttermindex == 1) %>% 
-View()
+  filter(cohorttermindex == 1) %>%
+  View()
 
 # Transform ----
 
 # Visualize ----
 
-plot_theme <- function(){
-	
-	theme_minimal() +
-	theme(plot.title = element_text(hjust = 0.5),
-	      legend.title = element_blank(),
-	      legend.position = "bottom",
-	      axis.title.x = element_blank(),
-	      axis.text.x = element_text(size = 10),
-	      legend.text = element_text(size = 10),
-	      panel.grid.major.x = element_blank()
-	      
-}
+
 
 # Model ----
 # outcomes conditional only on initial pathway choice
 # We only need to run the regression with the first entry for each student
 model_pathway <- multinom(outcome ~ pathway, data = cte_data_stu, Hess = TRUE)
-	      
+
 model_pathway_margins <- predictions(model_pathway, by = "pathway")
-	      
+
 model_pathway_margins <- model_pathway_margins %>%
   filter(group != "None") %>%
   mutate(outcome = ifelse(group == "Completion", 1, 2))
-	      
-model_pathway_margins$outcome <- factor(model_pathway_margins$outcome, levels = c(1,2),
-					labels = c("Completion First", "Transfer First")) 
+
+model_pathway_margins$outcome <- factor(model_pathway_margins$outcome,
+  levels = c(1, 2),
+  labels = c("Completion First", "Transfer First")
+)
 
 # Chart 1a: Probability of Completion First or Transferring First by Pathway
-ggplot(model_pathway_margins, aes(fill = fct_rev(outcome), y = estimate, x=pathway)) +
+ggplot(model_pathway_margins, aes(fill = fct_rev(outcome), y = estimate, x = pathway)) +
   geom_bar(position = "stack", stat = "identity", width = 0.8) +
-  scale_fill_manual("", breaks = c("Completion First", "Transfer First"),
-                    values = c(rgb(51, 34, 136, maxColorValue = 255), 
-                               rgb(68, 170, 153, maxColorValue = 255))) +
-  scale_y_continuous(name = "Probability", limits = c(0,1), breaks = seq(0, 1, by = 0.2)) +
-  labs(title = "Probability of Completion First or Transferring First \n by Pathway", y = "Probability") + 
-plot_theme()
+  scale_fill_manual("",
+    breaks = c("Completion First", "Transfer First"),
+    values = c(
+      rgb(51, 34, 136, maxColorValue = 255),
+      rgb(68, 170, 153, maxColorValue = 255)
+    )
+  ) +
+  scale_y_continuous(name = "Probability", limits = c(0, 1), breaks = seq(0, 1, by = 0.2)) +
+  labs(title = "Probability of Completion First or Transferring First \n by Pathway", y = "Probability") +
+  plot_theme()
 
 # Chart 2: Adjusted Probability of Completion First or Tranferring First by Pathway
-model_full <- multinom(outcome ~ hsgpa + mi_hsgpa + hsgpa * pathway + 
-		       male + male * pathway + motheredlevel + motheredlevel * pathway +
-		       pell + mi_pell + pell * pathway + race + race * pathway + pathway, 
-		       data = cte_data_stu, Hess = TRUE)
-	      
+model_full <- multinom(
+  outcome ~ hsgpa + mi_hsgpa + hsgpa * pathway +
+    male + male * pathway + motheredlevel + motheredlevel * pathway +
+    pell + mi_pell + pell * pathway + race + race * pathway + pathway,
+  data = cte_data_stu, Hess = TRUE
+)
+
 model_full_pathway_margins <- predictions(model_full, by = "pathway")
 model_full_pathway_margins <- model_full_pathway_margins %>%
   filter(group != "None") %>%
   mutate(outcome = ifelse(group == "Completion", 1, 2))
-model_full_pathway_margins$outcome <- factor(model_full_pathway_margins$outcome, levels = c(1,2),
-                                        labels = c("Completion First", "Transfer First")) 
+model_full_pathway_margins$outcome <- factor(model_full_pathway_margins$outcome,
+  levels = c(1, 2),
+  labels = c("Completion First", "Transfer First")
+)
 
 ggplot(model_full_pathway_margins, aes(fill = fct_rev(outcome), y = estimate, x = pathway)) +
   geom_bar(position = "stack", stat = "identity", width = 0.8) +
-  scale_fill_manual("", 
-                    breaks = c("Completion First", "Transfer First"),
-                    values = c(rgb(51, 34, 136, maxColorValue = 255), 
-                               rgb(68, 170, 153, maxColorValue = 255))) +
-  scale_y_continuous(name="Probability", limits = c(0,1), breaks = seq(0, 1, by = 0.2)) +
+  scale_fill_manual("",
+    breaks = c("Completion First", "Transfer First"),
+    values = c(
+      rgb(51, 34, 136, maxColorValue = 255),
+      rgb(68, 170, 153, maxColorValue = 255)
+    )
+  ) +
+  scale_y_continuous(name = "Probability", limits = c(0, 1), breaks = seq(0, 1, by = 0.2)) +
   labs(
     title = "Adjusted Probability of Completion First or Transferring First \n by Pathway",
     y = "Probability"
@@ -211,32 +245,42 @@ ggplot(model_full_pathway_margins, aes(fill = fct_rev(outcome), y = estimate, x 
   theme(
     plot.title = element_text(hjust = 0.5),
     legend.title = element_blank(),
-    legend.position="bottom",
+    legend.position = "bottom",
     axis.title.x = element_blank(),
-    axis.text.x=element_text(size=10),
+    axis.text.x = element_text(size = 10),
     legend.text = element_text(size = 10),
     panel.grid.major.x = element_blank()
   )
 
 # Visualization 1c: High school GPA + Race + Pathway margins
-model_full_hsgpa_margins <- predictions( model_full, newdata = datagrid(pathway = unique, race = unique, hsgpa = seq(2, 4, 0.25)))
+model_full_hsgpa_margins <- predictions(model_full,
+  newdata = datagrid(
+    pathway = unique,
+    race = unique,
+    hsgpa = seq(2, 4, 0.25)
+  )
+)
 
 model_full_hsgpa_margins <- model_full_hsgpa_margins %>%
   filter(group != "None") %>%
   mutate(outcome = ifelse(group == "Completion", 1, 2))
-model_full_hsgpa_margins$outcome <- factor(model_full_hsgpa_margins$outcome, levels = c(1,2),
-                                             labels = c("Completion First", "Transfer First")) 
+model_full_hsgpa_margins$outcome <- factor(model_full_hsgpa_margins$outcome,
+  levels = c(1, 2),
+  labels = c("Completion First", "Transfer First")
+)
 
-group.colors <- c(rgb(51, 34, 136, maxColorValue = 255), 
-                  rgb(136, 34, 85, maxColorValue = 255), 
-                  rgb(68, 170, 153, maxColorValue = 255), 
-                  rgb(136, 204, 238, maxColorValue = 255), 
-                  rgb(204, 102, 119, maxColorValue = 255))
+group.colors <- c(
+  rgb(51, 34, 136, maxColorValue = 255),
+  rgb(136, 34, 85, maxColorValue = 255),
+  rgb(68, 170, 153, maxColorValue = 255),
+  rgb(136, 204, 238, maxColorValue = 255),
+  rgb(204, 102, 119, maxColorValue = 255)
+)
 
-ggplot(model_full_hsgpa_margins, aes(hsgpa, estimate, group=race, color=race)) +
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE) + 
+ggplot(model_full_hsgpa_margins, aes(hsgpa, estimate, group = race, color = race)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE) +
   scale_color_manual(values = group.colors) +
-  facet_grid2(vars(outcome), vars(pathway), axes = "all", remove_labels = "y") + 
+  facet_grid2(vars(outcome), vars(pathway), axes = "all", remove_labels = "y") +
   labs(
     title = "Adjusted Probability of Completion First or Transfer First \n by High School GPA and Race",
     x = "High School GPA",
@@ -263,36 +307,54 @@ waterfall <- cte_data %>%
   mutate(denominator = n_distinct(studentid)) %>%
   ungroup() %>%
   group_by(entry_pathway, cohorttermindex) %>%
-  summarise(completed = sum(terminating), 
-            stillenrolled = sum(stillenrolled),
-            denominator = max(denominator)) %>%
-  mutate(pct_completed = completed/denominator,
-         pct_stillenrolled = stillenrolled/denominator,
-         pct_nonenrolled = ((denominator - (stillenrolled + completed))/denominator)*-1)
+  summarise(
+    completed = sum(terminating),
+    stillenrolled = sum(stillenrolled),
+    denominator = max(denominator)
+  ) %>%
+  mutate(
+    pct_completed = completed / denominator,
+    pct_stillenrolled = stillenrolled / denominator,
+    pct_nonenrolled = ((denominator - (stillenrolled + completed)) / denominator) * -1
+  )
 
-waterfall_long <- waterfall %>% 
-  select(entry_pathway, cohorttermindex, pct_completed, pct_stillenrolled, pct_nonenrolled) %>%
+waterfall_long <- waterfall %>%
+  select(
+    entry_pathway,
+    cohorttermindex,
+    pct_completed,
+    pct_stillenrolled,
+    pct_nonenrolled
+  ) %>%
   pivot_longer(
-    cols = pct_completed:pct_nonenrolled, 
+    cols = pct_completed:pct_nonenrolled,
     names_to = "status",
-    values_to = "value") %>%
-  mutate(status = ifelse(status == "pct_stillenrolled", "Still Enrolled", 
-			 ifelse(status == "pct_nonenrolled", "No Longer Enrolled", "Completer/Transfer")))
+    values_to = "value"
+  ) %>%
+  mutate(status = ifelse(status == "pct_stillenrolled", "Still Enrolled",
+    ifelse(status == "pct_nonenrolled", "No Longer Enrolled", "Completer/Transfer")
+  ))
 
 ggplot(waterfall_long, aes(x = cohorttermindex, y = value, fill = fct_rev(status))) +
   geom_bar(stat = "identity", position = "stack") +
-  facet_wrap(~ entry_pathway, ncol=2) +
+  facet_wrap(~entry_pathway, ncol = 2) +
   geom_hline(yintercept = 0, linetype = "solid", color = "gray") +
-  scale_fill_manual(values = c(rgb(51, 34, 136, maxColorValue = 255),
-                               rgb(136, 34, 85, maxColorValue = 255),
-                               rgb(68, 170, 153, maxColorValue = 255))) +
-  labs(title = "First Completion/Transfer Rates by Pathway",
+  scale_fill_manual(values = c(
+    rgb(51, 34, 136, maxColorValue = 255),
+    rgb(136, 34, 85, maxColorValue = 255),
+    rgb(68, 170, 153, maxColorValue = 255)
+  )) +
+  labs(
+    title = "First Completion/Transfer Rates by Pathway",
     x = "Cohort Term",
     y = "Proportion of Cohort",
-    fill = "Pathway") +
+    fill = "Pathway"
+  ) +
   theme_minimal() +
-  theme(legend.position = "right",
+  theme(
+    legend.position = "right",
     legend.title = element_blank(),
     legend.text = element_text(size = 10),
     legend.box.background = element_rect(color = "white"),
-    panel.grid.minor = element_blank())
+    panel.grid.minor = element_blank()
+  )
